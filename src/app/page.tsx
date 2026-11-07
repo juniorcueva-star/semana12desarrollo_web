@@ -1,69 +1,27 @@
-import Image from "next/image";
+"use client"
+
+import Link from "next/link"
+import { FormEvent, useEffect, useState } from "react"
+
+type Author = { id: string; name: string; email: string; nationality?: string | null; books?: unknown[]; _count?: { books: number } }
+type Book = { id: string; genre?: string | null }
+const initialForm = { name: "", email: "", nationality: "", birthYear: "", bio: "" }
 
 export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+  const [authors, setAuthors] = useState<Author[]>([])
+  const [books, setBooks] = useState<Book[]>([])
+  const [form, setForm] = useState(initialForm)
+  const [message, setMessage] = useState("")
+  const [loading, setLoading] = useState(true)
+  async function loadData() { setLoading(true); const [a, b] = await Promise.all([fetch("/api/authors"), fetch("/api/books")]); if (a.ok) setAuthors(await a.json()); if (b.ok) setBooks(await b.json()); setLoading(false) }
+  useEffect(() => { void Promise.all([fetch("/api/authors"), fetch("/api/books")]).then(async ([a, b]) => { if (a.ok) setAuthors(await a.json()); if (b.ok) setBooks(await b.json()); setLoading(false) }) }, [])
+  async function createAuthor(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setMessage(""); const response = await fetch("/api/authors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, birthYear: form.birthYear || undefined }) }); const data = await response.json(); if (!response.ok) return setMessage(data.error ?? "No se pudo crear el autor"); setForm(initialForm); await loadData() }
+  async function removeAuthor(id: string) { if (!window.confirm("¿Eliminar este autor y sus libros?")) return; const response = await fetch(`/api/authors/${id}`, { method: "DELETE" }); if (!response.ok) return setMessage("No se pudo eliminar el autor"); await loadData() }
+  const genres = new Set(books.map((book) => book.genre).filter(Boolean))
+  return <main className="app-shell"><nav className="nav"><Link className="brand" href="/"><span className="brand-mark">L</span>lumen</Link><div className="nav-links"><Link href="/">Autores</Link><Link href="/books">Catálogo</Link></div></nav><div className="page">
+    <section className="hero"><div><p className="eyebrow">Tu biblioteca, en orden</p><h1>Historias que merecen ser encontradas.</h1></div><p className="hero-copy">Organiza autores, descubre tu catálogo y mantén cada libro al alcance de una búsqueda.</p></section>
+    <section className="metric-grid" aria-label="Estadísticas generales"><div className="metric"><label>AUTORES</label><strong>{loading ? "—" : authors.length}</strong><span>voces en tu colección</span></div><div className="metric"><label>LIBROS</label><strong>{loading ? "—" : books.length}</strong><span>historias registradas</span></div><div className="metric"><label>GÉNEROS</label><strong>{loading ? "—" : genres.size}</strong><span>formas de leer el mundo</span></div></section>
+    <section className="content-grid"><div className="panel"><div className="panel-heading"><h2>Autores</h2><Link className="secondary-button" href="/books">Ver catálogo</Link></div>{loading ? <p className="empty">Cargando autores…</p> : authors.length === 0 ? <p className="empty">Aún no registras autores. Empieza con la primera voz de tu biblioteca.</p> : authors.map((author) => <article className="author-row" key={author.id}><span className="avatar">{author.name.slice(0, 1).toUpperCase()}</span><div className="row-main"><strong>{author.name}</strong><span>{author.nationality || "Nacionalidad no registrada"} · {author._count?.books ?? author.books?.length ?? 0} libros</span></div><div className="row-actions"><Link className="icon-button" href={`/authors/${author.id}`} aria-label={`Ver a ${author.name}`}>↗</Link><button className="icon-button" onClick={() => void removeAuthor(author.id)} aria-label={`Eliminar a ${author.name}`}>×</button></div></article>)}</div>
+      <aside className="panel form-panel"><h2>Nuevo autor</h2><p>Agrega una nueva firma a tu colección.</p>{message && <p className="notice">{message}</p>}<form className="form-grid" onSubmit={createAuthor}><div className="field"><label htmlFor="name">Nombre completo</label><input id="name" required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Ej. Isabel Allende" /></div><div className="field"><label htmlFor="email">Correo</label><input id="email" type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="autor@email.com" /></div><div className="form-grid two"><div className="field"><label htmlFor="nationality">Nacionalidad</label><input id="nationality" value={form.nationality} onChange={(event) => setForm({ ...form, nationality: event.target.value })} placeholder="Peruana" /></div><div className="field"><label htmlFor="birthYear">Año de nacimiento</label><input id="birthYear" inputMode="numeric" value={form.birthYear} onChange={(event) => setForm({ ...form, birthYear: event.target.value })} placeholder="1942" /></div></div><div className="field"><label htmlFor="bio">Reseña breve</label><textarea id="bio" rows={3} value={form.bio} onChange={(event) => setForm({ ...form, bio: event.target.value })} placeholder="Una nota sobre su obra…" /></div><div className="form-actions"><button className="primary-button" type="submit">Guardar autor</button></div></form></aside>
+    </section></div></main>
 }
